@@ -39,7 +39,7 @@ const handleSubmit = async (e) => {
   
 
   try {
-    const response = await axios.post('https://social-media-backend-1-2xcg.onrender.com/graphql', {
+    const response = await axios.post('https://social-media-backend-2-8z8v.onrender.com/graphql', {
       query: `
  mutation changePassword($email: String!, $oldPassword: String!, $newPassword: String!) {
   changePassword(email: $email, oldPassword: $oldPassword, newPassword: $newPassword)
