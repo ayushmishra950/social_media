@@ -31,7 +31,7 @@ const Login = () => {
 
     try {
       const response = await axios.post(
-        'http://localhost:5000/graphql',
+        'https://social-media-backend-2-8z8v.onrender.com/graphql',
         { query, variables },
         {
           headers: {
