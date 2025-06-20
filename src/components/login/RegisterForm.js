@@ -40,7 +40,7 @@ const RegisterForm = () => {
 
   try {
     const response = await axios.post(
-      'https://social-media-backend-1-2xcg.onrender.com/graphql',
+      'https://social-media-backend-2-8z8v.onrender.com/graphql',
       { query, variables },
       {
         headers: {
