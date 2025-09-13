@@ -47,7 +47,7 @@ const adminResolvers = {
         throw new Error("Failed to fetch user stories");
       }
     },
-    getAllCategories: checkRole(['ADMIN'])(async () => {
+    getAllCategories: (async () => {
       const categories = await Category.find().sort({ createdAt: -1 });
       return categories;
     }),

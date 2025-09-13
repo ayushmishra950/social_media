@@ -198,49 +198,79 @@ const PageDetail = () => {
 
 
     const handleFileChange = (event) => {
-      // Safely get the file from the event
-      const file = event?.target?.files?.[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      
-      reader.onload = (loadEvent) => {
-        if (!loadEvent?.target?.result) {
-          console.error('Error reading file');
-          return;
-        }
+      try {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Reset previous file input
+        event.target.value = '';
+        
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          const result = e.target.result;
+          if (!result) {
+            console.error('Error reading file: No result');
+            return;
+          }
+          
+          if (file.type.startsWith('image/')) {
+            setImage(file);
+            setVideo(null);
+            setSelectedMedia(result);
+            setMediaType('image');
+          } else if (file.type.startsWith('video/')) {
+            // For videos, we'll just show the file name since we can't preview videos with FileReader
+            setVideo(file);
+            setImage(null);
+            setSelectedMedia(URL.createObjectURL(file));
+            setMediaType('video');
+          } else {
+            alert('Only image or video files are allowed');
+            return;
+          }
+          
+          // Open the post modal after setting the media
+          setIsPostModalOpen(true);
+        };
+        
+        reader.onerror = (error) => {
+          console.error('File reading error:', error);
+          alert('Error reading file. Please try again.');
+        };
         
         if (file.type.startsWith('image/')) {
-          setImage(file);
-          setVideo(null);
-          setSelectedMedia(loadEvent.target.result);
-          setMediaType('image');
-          setIsPostModalOpen(true);
-        } else if (file.type.startsWith('video/')) {
+          reader.readAsDataURL(file);
+        } else {
+          // For videos, we'll just create an object URL for preview
           setVideo(file);
           setImage(null);
-          setSelectedMedia(loadEvent.target.result);
+          setSelectedMedia(URL.createObjectURL(file));
           setMediaType('video');
           setIsPostModalOpen(true);
-        } else {
-          alert('Only image or video files are allowed');
-          return;
         }
-      };
-      
-      reader.onerror = (error) => {
-        console.error('Error reading file:', error);
-        alert('Error reading file. Please try again.');
-      };
-      
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error in handleFileChange:', error);
+        alert('An error occurred while processing the file.');
+      }
     };
 
 
 
     const handleCreatePost = async () => {
       console.log('Debug values:', { pageId, image, video, postCaption });
-      if (!pageId || !postCaption.trim() || (!image && !video)) return;
+      if (!pageId) {
+        alert('Page ID is missing');
+        return;
+      }
+      if (!postCaption.trim()) {
+        alert('Please enter a caption');
+        return;
+      }
+      if (!image && !video) {
+        alert('Please select an image or video');
+        return;
+      }
       
       setIsCreatingPost(true);
       try {
@@ -315,7 +345,33 @@ const PageDetail = () => {
   
 
   useEffect(() => {
-    // Use getAllPages data to find the matching page
+    // First check localStorage for page data (from PagesSection)
+    const savedPages = JSON.parse(localStorage.getItem('userPages') || '[]');
+    const localPage = savedPages.find(p => p.id.toString() === pageId);
+    
+    if (localPage && pageId) {
+      // Use localStorage data immediately
+      const formattedPage = {
+        id: localPage.id,
+        name: localPage.name || localPage.title,
+        category: localPage.category,
+        description: localPage.description,
+        likes: localPage.likes || '0',
+        coverPhoto: localPage.coverPhoto || 'https://images.unsplash.com/photo-1518770660439-4636190af475?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80',
+        profilePhoto: localPage.profilePhoto || 'https://randomuser.me/api/portraits/tech/1.jpg',
+        isLiked: localPage.isLiked || false,
+        isYours: localPage.isYours || false,
+        createdAt: localPage.createdAt || new Date().toISOString(),
+        createdBy: localPage.createdBy
+      };
+      
+      setPage(formattedPage);
+      setIsLiked(localPage.isLiked || false);
+      setIsLoading(false);
+      return;
+    }
+    
+    // Fallback to getAllPages data if localStorage doesn't have the page
     if (allPagesData?.getAllPages && pageId) {
       const foundPage = allPagesData.getAllPages.find(p => p.id.toString() === pageId);
       
@@ -336,14 +392,16 @@ const PageDetail = () => {
         };
         
         setPage(formattedPage);
-        setIsLiked(false); // Reset like status
+        setIsLiked(false);
         setIsLoading(false);
       } else if (!allPagesLoading) {
         // If page not found and loading is complete, redirect
+        console.log('Page not found, redirecting to pages');
         navigate('/pages');
       }
     } else if (!allPagesLoading && !pageId) {
       // If no pageId and loading is complete, redirect
+      console.log('No pageId provided, redirecting to pages');
       navigate('/pages');
     }
   }, [pageId, navigate, allPagesData, allPagesLoading, currentUser]);
@@ -413,8 +471,13 @@ const PageDetail = () => {
     setPostCaption('');
   };
 
-  if (isLoading || postsLoading || userLoading) {
-    return <div className="page-detail-loading">Loading...</div>;
+  // Show loading only if we don't have page data and are still loading
+  if ((isLoading && !page) || (userLoading && !currentUser)) {
+    return (
+      <div className="page-detail-loading">
+        <div className="loading-spinner">Loading page...</div>
+      </div>
+    );
   }
 
   if (!page) {
@@ -514,10 +577,9 @@ const PageDetail = () => {
           )}
           
           {/* Post Buttons - Only show for page owner */}
-          {currentUser && page && (
-            (page.createdBy && currentUser.id.toString() === page.createdBy.id.toString()) ||
-            (page.isYours === true) ||
-            (!page.createdBy && page.isYours !== false)
+          {token && page && (
+            (page.createdBy && token.id.toString() === (page.createdBy.id || page.createdBy).toString()) ||
+            page.isYours === true
           ) && (
             <div className="post-buttons">
               <button 
@@ -568,7 +630,17 @@ const PageDetail = () => {
       {/* Posts Feed */}
       <div className="profile-content">
         {postsLoading ? (
-          <div className="loading-posts">Loading posts...</div>
+          <div className="loading-posts">
+            <div className="posts-skeleton">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="post-skeleton">
+                  <div className="skeleton-header"></div>
+                  <div className="skeleton-content"></div>
+                  <div className="skeleton-actions"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : posts.length > 0 ? (
           <div className="posts-feed">
             {posts.map(post => (

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { FaHeart, FaComment, FaShare, FaBookmark, FaEllipsisV, FaPlayCircle } from 'react-icons/fa';
-import { useQuery,useMutation } from '@apollo/client';
-import { PAGES_COMMENT_LIKE_REPLY,PAGES_REPLY_TO_COMMENT,LIKE_PAGE_POST,COMMENT_PAGE_POST} from '../../graphql/mutations';
-import {GetTokenFromCookie} from "../../components/getToken/GetToken"
+import { useQuery, useMutation } from '@apollo/client';
+import { PAGES_COMMENT_LIKE_REPLY, PAGES_REPLY_TO_COMMENT, LIKE_PAGE_POST, COMMENT_PAGE_POST } from '../../graphql/mutations';
+import { GetTokenFromCookie } from "../../components/getToken/GetToken";
+import ShareModal from '../share/ShareModal';
 
 const PostCard = ({ post }) => {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
@@ -14,6 +15,7 @@ const PostCard = ({ post }) => {
   const [isLiking, setIsLiking] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [showShareModal, setShowShareModal] = useState(false);
   const [showReplies, setShowReplies] = useState({});
   const [likePagePost] = useMutation(LIKE_PAGE_POST)
   const [commentPagePost] = useMutation(COMMENT_PAGE_POST)
@@ -275,6 +277,7 @@ const PostCard = ({ post }) => {
             
             <button 
               className="p-2 rounded-full text-gray-600 hover:bg-gray-100"
+              onClick={() => setShowShareModal(true)}
             >
               <FaShare />
             </button>
@@ -417,7 +420,7 @@ const PostCard = ({ post }) => {
                         )}
                       </div>
                       {/* <div className="mt-1 flex space-x-4 text-xs text-gray-500">
-                        <button className="hover:text-gray-700" >Like</button>
+                        <button className="hover:text-gray-700">Like</button>
                         <button className="hover:text-gray-700">Reply</button>
                       </div> */}
                     </div>
@@ -428,6 +431,20 @@ const PostCard = ({ post }) => {
           )}
         </div>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal 
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        contentType="post"
+        contentData={{
+          id: post.id,
+          imageUrl: post.media,
+          videoUrl: post.type === 'video' ? post.media : null,
+          caption: post.caption,
+          user: post.user || { id: post.userId, name: post.username }
+        }}
+      />
     </div>
   );
 };

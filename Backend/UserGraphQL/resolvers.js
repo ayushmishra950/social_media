@@ -169,19 +169,25 @@ getPagePosts: async (_, { pageId }) => {
                 },
                 $maxDistance: maxDistance,
               }
-            }
+            },
+            createdBy: { $ne: null } // Only get pages with valid createdBy
           }).populate("createdBy likedBy");
         }
     
         // 🔁 Get some random/popular pages as backup or extra suggestions
-        const otherPages = await Page.find().limit(20).populate("createdBy likedBy");
+        const otherPages = await Page.find({ 
+          createdBy: { $ne: null } // Only get pages with valid createdBy
+        }).limit(20).populate("createdBy likedBy");
     
         // 🧠 Combine and remove duplicates
         const combined = [...nearbyPages, ...otherPages];
         const uniquePagesMap = new Map();
     
         combined.forEach(page => {
-          uniquePagesMap.set(page._id.toString(), page);
+          // Double check that createdBy exists before adding to map
+          if (page.createdBy) {
+            uniquePagesMap.set(page._id.toString(), page);
+          }
         });
     
         return Array.from(uniquePagesMap.values());
@@ -203,6 +209,9 @@ getPagePosts: async (_, { pageId }) => {
 
     getLikedPages: async (_, { userId }) => {
       try {
+        if (!userId) {
+          throw new Error('userId is required');
+        }
         const user = await User.findById(userId).populate("likedPages");
         if (!user) throw new Error("User not found");
         return user.likedPages;
@@ -213,6 +222,9 @@ getPagePosts: async (_, { pageId }) => {
 
     getUserPages: async (_, { userId }) => {
       try {
+        if (!userId) {
+          throw new Error('userId is required');
+        }
         const user = await User.findById(userId).populate("createdPages");
         if (!user) throw new Error("User not found");
         return user.createdPages;
@@ -232,6 +244,9 @@ getPagePosts: async (_, { pageId }) => {
     },
 
     getLikedImagePostsByUser: async (_, { userId }) => {
+      if (!userId) {
+        throw new Error('userId is required');
+      }
       const posts = await Post.find({
         "likes.user": userId,
         imageUrl: { $ne: null }
@@ -295,6 +310,11 @@ getFollowRequestsByUser: async (_, { userId }) => {
 
      users: async (_, { userId }) => {
   try {
+    // Validate userId parameter
+    if (!userId) {
+      throw new Error('userId is required');
+    }
+    
     // Step 1: Get current user with following, blockedUsers, and blockedBy
     const user = await User.findById(userId)
       .populate('following', 'id name username profileImage isOnline is_blocked')
@@ -374,10 +394,21 @@ mySelf: async (_, { userId }, { dataSources }) => {
     // users: async () =>
     //   await User.find().select('id name username email phone profileImage is_blocked bio createTime isOnline lastActive').populate('posts', 'id').populate('blockedUsers', 'id name username profileImage'),
 
-      getMe: async (_, args, { user }) => {
+      getMe: async (_, args, { user, req }) => {
         try {
+          // Check for user from context first
           if (!user) {
-            throw new Error('Authentication required');
+            // Try to get token from cookies or Authorization header
+            const token = req?.cookies?.token || req?.headers?.authorization?.replace('Bearer ', '');
+            
+            if (!token) {
+              console.log('❌ No token found in cookies or Authorization header');
+              throw new Error('Authentication required');
+            }
+            
+            // If we have a token but no user context, that means token verification failed
+            console.log('❌ Token found but user context missing - token may be invalid');
+            throw new Error('Invalid or expired token');
           }
 
           const currentUser = await User.findOne({ _id: user.id })
@@ -385,6 +416,9 @@ mySelf: async (_, { userId }, { dataSources }) => {
             .populate('followers')
             .populate('following');
           
+          if (!currentUser) {
+            throw new Error('User not found');
+          }
      
           return currentUser;
         } catch(error) {
@@ -422,7 +456,16 @@ mySelf: async (_, { userId }, { dataSources }) => {
 getAllPosts: async (_, { userId, userLocation }) => {
   console.log('getAllPosts called with userId:', userId, 'and userLocation:', userLocation);
   try {
-    const [lon, lat] = userLocation?.coordinates;
+    // Validate required parameters
+    if (!userId) {
+      throw new Error('userId is required');
+    }
+    
+    if (!userLocation || !userLocation.coordinates) {
+      throw new Error('userLocation with coordinates is required');
+    }
+    
+    const [lon, lat] = userLocation.coordinates;
 
     const currentUser = await User.findById(userId)
       .populate('following')
@@ -696,6 +739,12 @@ getCommentDetails: async (_, { postId, commentId }) => {
 
 searchUsers: async (_, { username, userId }, { user: requestingUser }) => {
   try {
+    if (!username) {
+      throw new Error('Search username is required');
+    }
+    if (!userId) {
+      throw new Error('userId is required');
+    }
     // Search all users except the current user
     const users = await User.find({
       $and: [
@@ -860,13 +909,12 @@ searchUsers: async (_, { username, userId }, { user: requestingUser }) => {
 
   //   getUserInformation: async (_, { id }) => {
   //     const user = await User.findById(id);
-  //     if (!user) throw new Error("User not found");
-  //     return user;
-  //   },
-  // },
 
   getUserInformation: async (_, { id }, { user: requestingUser }) => {
   try {
+    if (!id) {
+      throw new Error('User ID is required');
+    }
     console.log('🔍 Fetching user information for ID:', id);
     
     const targetUser = await User.findById(id)
