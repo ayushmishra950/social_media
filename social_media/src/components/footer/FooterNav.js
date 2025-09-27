@@ -280,6 +280,9 @@ const FooterNav = () => {
         setImage(null);
         setVideo(null);
 
+        // Dispatch event to refresh posts without page reload
+        window.dispatchEvent(new Event("postUploaded"));
+
         setTimeout(() => {
           setShowSuccess(true);
           setTimeout(() => setShowSuccess(false), 2000);
