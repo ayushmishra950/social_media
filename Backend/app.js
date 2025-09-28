@@ -64,7 +64,7 @@ app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true, parameterLimit: 50000 }));
 
 app.use(cookieParser());
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use(cors({ origin: 'https://only-frontend-git-main-ayushs-projects-96e41082.vercel.app', credentials: true }));
 
 // Setup multer for file uploads
 const multer = require('multer');
@@ -266,7 +266,7 @@ let io;
 try {
   io = new Server(httpServer, {
     cors: {
-      origin: 'http://localhost:3000',
+      origin: 'https://only-frontend-git-main-ayushs-projects-96e41082.vercel.app',
       credentials: true,
     },
     transports: ['polling', 'websocket'],
@@ -831,7 +831,7 @@ async function startServer() {
   server.applyMiddleware({
     app,
     cors: {
-      origin: 'http://localhost:3000',
+      origin: 'https://only-frontend-git-main-ayushs-projects-96e41082.vercel.app',
       credentials: true,
     },
     // Add timeout for middleware
